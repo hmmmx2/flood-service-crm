@@ -1,0 +1,80 @@
+version: "3.9"
+
+# ── Flood CRM Service — local development stack ──────────────────────────────
+# Starts: Spring Boot API + PostgreSQL + Redis
+# Usage:  docker-compose up --build
+# API:    http://localhost:4002
+
+services:
+
+  # ── CRM API (Spring Boot) ──────────────────────────────────────────────────
+  crm-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: flood-crm-api
+    ports:
+      - "4002:4002"
+    environment:
+      PORT: 4002
+      DATABASE_URL: jdbc:postgresql://postgres:5432/flood_crm?user=${DB_USER:-flood}&password=${DB_PASSWORD:-flood}
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      NODE_ENV: ${NODE_ENV:-development}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-noreply@yourdomain.com}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - crm-net
+
+  # ── PostgreSQL ─────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: flood-crm-postgres
+    ports:
+      - "5434:5432"   # host 5434 → container 5432 (avoid clash with community Postgres on 5433)
+    environment:
+      POSTGRES_DB: flood_crm
+      POSTGRES_USER: ${DB_USER:-flood}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-flood}
+    volumes:
+      - crm_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-flood} -d flood_crm"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - crm-net
+
+  # ── Redis ──────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: flood-crm-redis
+    ports:
+      - "6381:6379"   # host 6381 → container 6379 (avoid clash with community Redis on 6380)
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - crm-net
+
+volumes:
+  crm_postgres_data:
+    name: flood_crm_postgres
+
+networks:
+  crm-net:
+    name: flood-crm-network
+    driver: bridge
