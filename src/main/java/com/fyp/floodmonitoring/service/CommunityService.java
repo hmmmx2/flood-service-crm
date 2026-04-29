@@ -204,15 +204,17 @@ public class CommunityService {
     public LikeToggleDto toggleLike(UUID postId, UUID userId) {
         CommunityPost post = postRepo.findById(postId)
                 .orElseThrow(() -> AppException.notFound("Post not found"));
+        // Snapshot before @Modifying JPQL — matches flood-service-community toggleLike
+        int currentCount = Math.max(0, post.getLikesCount());
         boolean alreadyLiked = likeRepo.existsByPostIdAndUserId(postId, userId);
         if (alreadyLiked) {
             likeRepo.deleteByPostIdAndUserId(postId, userId);
             postRepo.adjustLikes(postId, -1);
-            return new LikeToggleDto(false, post.getLikesCount() - 1);
+            return new LikeToggleDto(false, Math.max(0, currentCount - 1));
         } else {
             likeRepo.save(CommunityPostLike.builder().postId(postId).userId(userId).build());
             postRepo.adjustLikes(postId, 1);
-            return new LikeToggleDto(true, post.getLikesCount() + 1);
+            return new LikeToggleDto(true, currentCount + 1);
         }
     }
 
@@ -261,7 +263,7 @@ public class CommunityService {
                 g != null ? g.getSlug() : null,
                 g != null ? g.getName() : null,
                 p.getTitle(), p.getContent(), p.getImageUrl(),
-                p.getLikesCount(), p.getCommentsCount(), likedByMe,
+                Math.max(0, p.getLikesCount()), p.getCommentsCount(), likedByMe,
                 p.getCreatedAt(), p.getUpdatedAt(), comments
         );
     }

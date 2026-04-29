@@ -82,8 +82,9 @@ flood-service-crm (Spring Boot :4002)
 ```bash
 # From the monorepo root
 cd flood-service-crm
-cp src/main/resources/application.yml.example src/main/resources/application.yml
 ```
+
+The committed [`src/main/resources/application.yml`](src/main/resources/application.yml) already uses `${ENV_VAR:default}` placeholders for everything sensitive — no copy step needed. Just provide the env vars in step 2.
 
 ### 2. Set environment variables
 
