@@ -36,7 +36,7 @@ public class BroadcastController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','OPERATIONS_MANAGER')")
     public ResponseEntity<BroadcastDto> create(
             @AuthenticationPrincipal UserDetails principal,
             @Valid @RequestBody CreateBroadcastRequest req) {

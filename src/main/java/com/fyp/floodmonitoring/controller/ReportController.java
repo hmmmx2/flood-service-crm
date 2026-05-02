@@ -33,7 +33,7 @@ public class ReportController {
     private final ReportService reportService;
 
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','OPERATIONS_MANAGER','NGO_VOLUNTEER')")
     public ResponseEntity<List<ReportDto>> getAll(
             @RequestParam(required = false) String status) {
 
@@ -54,7 +54,7 @@ public class ReportController {
     }
 
     @PatchMapping("/{id}/status")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','OPERATIONS_MANAGER','NGO_VOLUNTEER')")
     public ResponseEntity<ReportDto> updateStatus(
             @PathVariable UUID id,
             @Valid @RequestBody UpdateReportStatusRequest req) {
