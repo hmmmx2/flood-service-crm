@@ -4,9 +4,9 @@ import com.fyp.floodmonitoring.dto.request.IngestRequest;
 import com.fyp.floodmonitoring.dto.response.IngestResponse;
 import com.fyp.floodmonitoring.entity.Event;
 import com.fyp.floodmonitoring.entity.Node;
-import com.fyp.floodmonitoring.exception.AppException;
 import com.fyp.floodmonitoring.repository.EventRepository;
 import com.fyp.floodmonitoring.repository.NodeRepository;
+import com.fyp.floodmonitoring.util.GeoUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
@@ -19,7 +19,7 @@ import java.time.Instant;
  * Handles IoT sensor data ingestion.
  *
  * On each call to ingest():
- *   1. Looks up the node by nodeId — 404 if not found
+ *   1. Looks up the node by nodeId — auto-creates a row on first sight of a new nodeId
  *   2. Detects if the flood level has changed
  *   3. Saves a new event row (always)
  *   4. Updates node.currentLevel + node.lastUpdated
@@ -38,7 +38,7 @@ public class IngestService {
     @CacheEvict(value = {"analytics", "dashboard"}, allEntries = true)
     public IngestResponse ingest(IngestRequest req) {
         Node node = nodeRepository.findByNodeId(req.nodeId())
-                .orElseThrow(() -> AppException.notFound("Node not found: " + req.nodeId()));
+                .orElseGet(() -> provisionNewNode(req));
 
         int previousLevel = node.getCurrentLevel() != null ? node.getCurrentLevel() : 0;
         int newLevel      = req.level();
@@ -69,5 +69,25 @@ public class IngestService {
 
         log.debug("[Ingest] nodeId={} level={}->{} alertFired={}", req.nodeId(), previousLevel, newLevel, alertFired);
         return new IngestResponse(true, req.nodeId(), alertFired);
+    }
+
+    private Node provisionNewNode(IngestRequest req) {
+        double lat = req.latitude() != null ? req.latitude() : GeoUtils.KUCHING_LAT;
+        double lon = req.longitude() != null ? req.longitude() : GeoUtils.KUCHING_LON;
+        Node n = Node.builder()
+                .nodeId(req.nodeId())
+                .name("Node " + req.nodeId())
+                .latitude(lat)
+                .longitude(lon)
+                .currentLevel(0)
+                .isDead(false)
+                .area("Kuching")
+                .location("")
+                .state("Sarawak")
+                .lastUpdated(Instant.now())
+                .createdAt(Instant.now())
+                .build();
+        log.info("[Ingest] Auto-provisioned node nodeId={} lat={} lon={}", req.nodeId(), lat, lon);
+        return nodeRepository.save(n);
     }
 }
