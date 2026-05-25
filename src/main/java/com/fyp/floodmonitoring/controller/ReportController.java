@@ -3,6 +3,7 @@ package com.fyp.floodmonitoring.controller;
 import com.fyp.floodmonitoring.dto.request.CreateReportRequest;
 import com.fyp.floodmonitoring.dto.request.UpdateReportStatusRequest;
 import com.fyp.floodmonitoring.dto.response.ReportDto;
+import com.fyp.floodmonitoring.service.AdminAuditService;
 import com.fyp.floodmonitoring.service.ReportService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,7 @@ import java.util.UUID;
 public class ReportController {
 
     private final ReportService reportService;
+    private final AdminAuditService adminAuditService;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN','OPERATIONS_MANAGER','NGO_VOLUNTEER')")
@@ -57,8 +59,12 @@ public class ReportController {
     @PreAuthorize("hasAnyRole('ADMIN','OPERATIONS_MANAGER','NGO_VOLUNTEER')")
     public ResponseEntity<ReportDto> updateStatus(
             @PathVariable UUID id,
-            @Valid @RequestBody UpdateReportStatusRequest req) {
+            @Valid @RequestBody UpdateReportStatusRequest req,
+            @AuthenticationPrincipal UserDetails principal) {
 
-        return ResponseEntity.ok(reportService.updateStatus(id, req));
+        ReportDto updated = reportService.updateStatus(id, req);
+        UUID actorId = UUID.fromString(principal.getUsername());
+        adminAuditService.record(actorId, "REPORT_STATUS_UPDATE", "REPORT", id.toString(), updated.status());
+        return ResponseEntity.ok(updated);
     }
 }

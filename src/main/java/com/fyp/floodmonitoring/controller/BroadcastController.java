@@ -2,6 +2,7 @@ package com.fyp.floodmonitoring.controller;
 
 import com.fyp.floodmonitoring.dto.request.CreateBroadcastRequest;
 import com.fyp.floodmonitoring.dto.response.BroadcastDto;
+import com.fyp.floodmonitoring.service.AdminAuditService;
 import com.fyp.floodmonitoring.service.BroadcastService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,7 @@ import java.util.UUID;
 public class BroadcastController {
 
     private final BroadcastService broadcastService;
+    private final AdminAuditService adminAuditService;
 
     @GetMapping
     public ResponseEntity<List<BroadcastDto>> getAll() {
@@ -42,7 +44,9 @@ public class BroadcastController {
             @Valid @RequestBody CreateBroadcastRequest req) {
 
         UUID adminId = UUID.fromString(principal.getUsername());
+        BroadcastDto created = broadcastService.create(adminId, req);
+        adminAuditService.record(adminId, "BROADCAST_SEND", "BROADCAST", created.id(), created.title());
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(broadcastService.create(adminId, req));
+                .body(created);
     }
 }

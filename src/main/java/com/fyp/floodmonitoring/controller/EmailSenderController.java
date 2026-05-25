@@ -3,6 +3,7 @@ package com.fyp.floodmonitoring.controller;
 import com.fyp.floodmonitoring.entity.EmailSender;
 import com.fyp.floodmonitoring.exception.AppException;
 import com.fyp.floodmonitoring.repository.EmailSenderRepository;
+import com.fyp.floodmonitoring.service.AdminAuditService;
 import com.fyp.floodmonitoring.service.EmailSenderResolver;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
@@ -10,10 +11,12 @@ import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Admin-only CRUD over the email-sender registry. Lets ops swap the
@@ -31,6 +34,7 @@ public class EmailSenderController {
 
     private final EmailSenderRepository repo;
     private final EmailSenderResolver   resolver;
+    private final AdminAuditService     adminAuditService;
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN') or hasRole('OPERATIONS_MANAGER')")
@@ -47,7 +51,8 @@ public class EmailSenderController {
     @PreAuthorize("hasRole('ADMIN') or hasRole('OPERATIONS_MANAGER')")
     public ResponseEntity<EmailSenderDto> update(
             @PathVariable String purpose,
-            @Valid @RequestBody UpdateEmailSenderRequest req) {
+            @Valid @RequestBody UpdateEmailSenderRequest req,
+            Authentication auth) {
 
         EmailSender row = repo.findByPurposeIgnoreCaseAndActiveTrue(purpose)
                 .orElseThrow(() -> AppException.notFound("Sender not found: " + purpose));
@@ -67,6 +72,7 @@ public class EmailSenderController {
         // Resolver caches per JVM lifetime — drop cache so the next email
         // picks up the new value without a restart.
         resolver.invalidate();
+        adminAuditService.record(requireUserId(auth), "SETTINGS_EMAIL_SENDER_UPDATE", "EMAIL_SENDER", saved.getId().toString(), saved.getPurpose());
 
         return ResponseEntity.ok(toDto(saved));
     }
@@ -94,5 +100,14 @@ public class EmailSenderController {
                 s.getDisplayName(),
                 Boolean.TRUE.equals(s.getActive()),
                 s.getUpdatedAt());
+    }
+
+    private static UUID requireUserId(Authentication auth) {
+        if (auth == null || !auth.isAuthenticated()) return null;
+        try {
+            return UUID.fromString(auth.getName());
+        } catch (Exception e) {
+            return null;
+        }
     }
 }

@@ -3,6 +3,7 @@ package com.fyp.floodmonitoring.controller;
 import com.fyp.floodmonitoring.dto.request.CreateAdminUserRequest;
 import com.fyp.floodmonitoring.dto.request.UpdateAdminUserRequest;
 import com.fyp.floodmonitoring.dto.response.AdminUserDto;
+import com.fyp.floodmonitoring.service.AdminAuditService;
 import com.fyp.floodmonitoring.service.AdminUserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ import java.util.UUID;
 public class AdminUserController {
 
     private final AdminUserService adminUserService;
+    private final AdminAuditService adminAuditService;
 
     @GetMapping
     public ResponseEntity<List<AdminUserDto>> listUsers() {
@@ -33,8 +35,10 @@ public class AdminUserController {
     }
 
     @PostMapping
-    public ResponseEntity<AdminUserDto> createUser(@Valid @RequestBody CreateAdminUserRequest req) {
-        return ResponseEntity.ok(adminUserService.createUser(req));
+    public ResponseEntity<AdminUserDto> createUser(@Valid @RequestBody CreateAdminUserRequest req, Authentication auth) {
+        AdminUserDto created = adminUserService.createUser(req);
+        adminAuditService.record(requireUserId(auth), "USER_CREATE", "USER", created.id(), created.email());
+        return ResponseEntity.ok(created);
     }
 
     @PatchMapping("/{id}")
@@ -42,12 +46,15 @@ public class AdminUserController {
             @PathVariable UUID id,
             @Valid @RequestBody UpdateAdminUserRequest req,
             Authentication auth) {
-        return ResponseEntity.ok(adminUserService.updateUser(id, requireUserId(auth), req));
+        AdminUserDto updated = adminUserService.updateUser(id, requireUserId(auth), req);
+        adminAuditService.record(requireUserId(auth), "USER_UPDATE", "USER", id.toString(), updated.email());
+        return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteUser(@PathVariable UUID id, Authentication auth) {
         adminUserService.deleteUser(id, requireUserId(auth));
+        adminAuditService.record(requireUserId(auth), "USER_DELETE", "USER", id.toString(), null);
         return ResponseEntity.noContent().build();
     }
 

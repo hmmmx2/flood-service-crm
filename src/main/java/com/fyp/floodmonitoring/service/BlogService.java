@@ -6,6 +6,7 @@ import com.fyp.floodmonitoring.dto.response.BlogDto;
 import com.fyp.floodmonitoring.entity.Blog;
 import com.fyp.floodmonitoring.exception.AppException;
 import com.fyp.floodmonitoring.repository.BlogRepository;
+import com.fyp.floodmonitoring.util.ImageDataUrlValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -59,7 +60,7 @@ public class BlogService {
                 .title(req.title().strip())
                 .body(req.body().strip())
                 .imageKey(req.imageKey() != null ? req.imageKey() : "blog-1")
-                .imageUrl(req.imageUrl())
+                .imageUrl(ImageDataUrlValidator.cleanNullableImageUrl(req.imageUrl(), 200_000))
                 .category(req.category() != null ? req.category() : "General")
                 .isFeatured(req.isFeatured() != null ? req.isFeatured() : false)
                 .build();
@@ -74,7 +75,7 @@ public class BlogService {
         if (req.title() != null && !req.title().isBlank()) blog.setTitle(req.title().strip());
         if (req.body()  != null && !req.body().isBlank())  blog.setBody(req.body().strip());
         if (req.imageKey()  != null) blog.setImageKey(req.imageKey());
-        if (req.imageUrl()  != null) blog.setImageUrl(req.imageUrl().isBlank() ? null : req.imageUrl().strip());
+        if (req.imageUrl()  != null) blog.setImageUrl(ImageDataUrlValidator.cleanNullableImageUrl(req.imageUrl(), 200_000));
         if (req.category()  != null) blog.setCategory(req.category());
         if (req.isFeatured()!= null) blog.setIsFeatured(req.isFeatured());
 

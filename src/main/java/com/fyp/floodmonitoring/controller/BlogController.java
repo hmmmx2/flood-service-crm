@@ -3,6 +3,7 @@ package com.fyp.floodmonitoring.controller;
 import com.fyp.floodmonitoring.dto.request.CreateBlogRequest;
 import com.fyp.floodmonitoring.dto.request.UpdateBlogRequest;
 import com.fyp.floodmonitoring.dto.response.BlogDto;
+import com.fyp.floodmonitoring.service.AdminAuditService;
 import com.fyp.floodmonitoring.service.BlogService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +11,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -27,6 +29,7 @@ import java.util.UUID;
 public class BlogController {
 
     private final BlogService blogService;
+    private final AdminAuditService adminAuditService;
 
     // ── Public ────────────────────────────────────────────────────────────────
 
@@ -58,34 +61,54 @@ public class BlogController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','OPERATIONS_MANAGER','NGO_VOLUNTEER')")
-    public ResponseEntity<BlogDto> createBlog(@Valid @RequestBody CreateBlogRequest req) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(blogService.createBlog(req));
+    public ResponseEntity<BlogDto> createBlog(@Valid @RequestBody CreateBlogRequest req, Authentication auth) {
+        BlogDto created = blogService.createBlog(req);
+        adminAuditService.record(requireUserId(auth), "BLOG_CREATE", "BLOG", created.id(), created.title());
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','OPERATIONS_MANAGER','NGO_VOLUNTEER')")
     public ResponseEntity<BlogDto> updateBlog(@PathVariable UUID id,
-                                              @Valid @RequestBody UpdateBlogRequest req) {
-        return ResponseEntity.ok(blogService.updateBlog(id, req));
+                                              @Valid @RequestBody UpdateBlogRequest req,
+                                              Authentication auth) {
+        BlogDto updated = blogService.updateBlog(id, req);
+        adminAuditService.record(requireUserId(auth), "BLOG_UPDATE", "BLOG", id.toString(), updated.title());
+        return ResponseEntity.ok(updated);
     }
 
     @PatchMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','OPERATIONS_MANAGER','NGO_VOLUNTEER')")
     public ResponseEntity<BlogDto> patchBlog(@PathVariable UUID id,
-                                             @Valid @RequestBody UpdateBlogRequest req) {
-        return ResponseEntity.ok(blogService.updateBlog(id, req));
+                                             @Valid @RequestBody UpdateBlogRequest req,
+                                             Authentication auth) {
+        BlogDto updated = blogService.updateBlog(id, req);
+        adminAuditService.record(requireUserId(auth), "BLOG_UPDATE", "BLOG", id.toString(), updated.title());
+        return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','OPERATIONS_MANAGER','NGO_VOLUNTEER')")
-    public ResponseEntity<Void> deleteBlog(@PathVariable UUID id) {
+    public ResponseEntity<Void> deleteBlog(@PathVariable UUID id, Authentication auth) {
         blogService.deleteBlog(id);
+        adminAuditService.record(requireUserId(auth), "BLOG_DELETE", "BLOG", id.toString(), null);
         return ResponseEntity.noContent().build();
     }
 
     @PatchMapping("/{id}/featured")
     @PreAuthorize("hasAnyRole('ADMIN','OPERATIONS_MANAGER','NGO_VOLUNTEER')")
-    public ResponseEntity<BlogDto> toggleFeatured(@PathVariable UUID id) {
-        return ResponseEntity.ok(blogService.toggleFeatured(id));
+    public ResponseEntity<BlogDto> toggleFeatured(@PathVariable UUID id, Authentication auth) {
+        BlogDto updated = blogService.toggleFeatured(id);
+        adminAuditService.record(requireUserId(auth), "BLOG_FEATURE_TOGGLE", "BLOG", id.toString(), updated.title());
+        return ResponseEntity.ok(updated);
+    }
+
+    private static UUID requireUserId(Authentication auth) {
+        if (auth == null || !auth.isAuthenticated()) return null;
+        try {
+            return UUID.fromString(auth.getName());
+        } catch (Exception e) {
+            return null;
+        }
     }
 }

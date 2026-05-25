@@ -11,6 +11,7 @@ import com.fyp.floodmonitoring.dto.response.LikeToggleDto;
 import com.fyp.floodmonitoring.entity.*;
 import com.fyp.floodmonitoring.exception.AppException;
 import com.fyp.floodmonitoring.repository.*;
+import com.fyp.floodmonitoring.util.ImageDataUrlValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -159,7 +160,7 @@ public class CommunityService {
                 .group(group)
                 .title(req.title().trim())
                 .content(req.content().trim())
-                .imageUrl(req.imageUrl())
+                .imageUrl(ImageDataUrlValidator.cleanNullableImageUrl(req.imageUrl(), 160_000))
                 .build();
 
         post = postRepo.save(post);
@@ -181,7 +182,7 @@ public class CommunityService {
         if (req.content() != null && !req.content().isBlank()) post.setContent(req.content().trim());
         // imageUrl can be set to null explicitly to remove the image
         if (req.imageUrl() != null || req.removeImage()) {
-            post.setImageUrl(req.removeImage() ? null : req.imageUrl());
+            post.setImageUrl(req.removeImage() ? null : ImageDataUrlValidator.cleanNullableImageUrl(req.imageUrl(), 160_000));
         }
         post = postRepo.save(post);
         return toDto(post, false, null);

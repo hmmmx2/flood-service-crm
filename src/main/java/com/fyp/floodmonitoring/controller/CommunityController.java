@@ -6,6 +6,7 @@ import com.fyp.floodmonitoring.dto.request.CreateGroupRequest;
 import com.fyp.floodmonitoring.dto.request.UpdatePostRequest;
 import com.fyp.floodmonitoring.dto.response.*;
 import com.fyp.floodmonitoring.exception.AppException;
+import com.fyp.floodmonitoring.service.AdminAuditService;
 import com.fyp.floodmonitoring.service.CommunityService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ import java.util.UUID;
 public class CommunityController {
 
     private final CommunityService communityService;
+    private final AdminAuditService adminAuditService;
 
     // ══ GROUP ENDPOINTS ═══════════════════════════════════════════════════════
 
@@ -42,14 +44,17 @@ public class CommunityController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<CommunityGroupDto> createGroup(
             @Valid @RequestBody CreateGroupRequest req, Authentication auth) {
-        return ResponseEntity.ok(communityService.createGroup(requireUserId(auth), req));
+        CommunityGroupDto created = communityService.createGroup(requireUserId(auth), req);
+        adminAuditService.record(requireUserId(auth), "COMMUNITY_GROUP_CREATE", "COMMUNITY_GROUP", created.id(), created.name());
+        return ResponseEntity.ok(created);
     }
 
     /** Admin-only: delete a group */
     @DeleteMapping("/groups/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> deleteGroup(@PathVariable UUID id) {
+    public ResponseEntity<Void> deleteGroup(@PathVariable UUID id, Authentication auth) {
         communityService.deleteGroup(id);
+        adminAuditService.record(requireUserId(auth), "COMMUNITY_GROUP_DELETE", "COMMUNITY_GROUP", id.toString(), null);
         return ResponseEntity.noContent().build();
     }
 
@@ -139,8 +144,9 @@ public class CommunityController {
 
     @DeleteMapping("/admin/posts/{id}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('OPERATIONS_MANAGER')")
-    public ResponseEntity<Void> adminDeletePost(@PathVariable UUID id) {
+    public ResponseEntity<Void> adminDeletePost(@PathVariable UUID id, Authentication auth) {
         communityService.deletePost(id, null, true);
+        adminAuditService.record(requireUserId(auth), "MODERATION_POST_DELETE", "COMMUNITY_POST", id.toString(), null);
         return ResponseEntity.noContent().build();
     }
 
@@ -152,8 +158,9 @@ public class CommunityController {
 
     @DeleteMapping("/admin/groups/{id}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('OPERATIONS_MANAGER')")
-    public ResponseEntity<Void> adminDeleteGroup(@PathVariable UUID id) {
+    public ResponseEntity<Void> adminDeleteGroup(@PathVariable UUID id, Authentication auth) {
         communityService.deleteGroup(id);
+        adminAuditService.record(requireUserId(auth), "MODERATION_GROUP_DELETE", "COMMUNITY_GROUP", id.toString(), null);
         return ResponseEntity.noContent().build();
     }
 

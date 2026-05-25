@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Random;
+import java.security.SecureRandom;
 import java.util.UUID;
 
 /**
@@ -27,6 +27,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class AuthService {
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private static final List<String> DEFAULT_SETTING_KEYS =
             List.of("pushNotifications", "smsNotifications", "emailNotifications", "lowDataMode");
@@ -168,7 +169,7 @@ public class AuthService {
 
         resetCodeRepository.invalidateAllForUser(user.getId());
 
-        String code = String.format("%06d", new Random().nextInt(900000) + 100000);
+        String code = String.format("%06d", SECURE_RANDOM.nextInt(900000) + 100000);
         PasswordResetCode resetCode = PasswordResetCode.builder()
                 .userId(user.getId())
                 .code(code)
@@ -251,7 +252,7 @@ public class AuthService {
         RefreshToken rt = RefreshToken.builder()
                 .userId(user.getId())
                 .token(refreshToken)
-                .expiresAt(Instant.now().plusMillis(refreshTokenExpiryMs))
+                .expiresAt(Instant.now().plusMillis(refreshExpiryForRole(user.getRole())))
                 .build();
         refreshTokenRepository.save(rt);
 
@@ -268,6 +269,14 @@ public class AuthService {
                 Role.fromString(user.getRole()).getDisplayLabel());
 
         return new LoginResponseDto(session, userDto);
+    }
+
+    private long refreshExpiryForRole(String role) {
+        String normalized = role == null ? "" : role.toLowerCase();
+        if ("admin".equals(normalized) || "operations_manager".equals(normalized)) {
+            return Math.min(refreshTokenExpiryMs, 12 * 60 * 60 * 1000L);
+        }
+        return refreshTokenExpiryMs;
     }
 
     // ── Change password (authenticated) ──────────────────────────────────────
